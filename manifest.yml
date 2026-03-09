@@ -1,0 +1,24 @@
+permissions:
+  scopes:
+    - storage:app
+modules:
+  macro:
+    - key: api-flow-macro
+      resource: main
+      resolver:
+        function: resolver
+      title: API Flow Chart
+      description: Document your API call sequences as auto-updating diagrams.
+      layout: block
+  function:
+    - key: resolver
+      handler: index.handler
+resources:
+  - key: main
+    path: static/frontend/dist
+app:
+  id: ari:cloud:ecosystem::app/bdaf785c-35cd-4ad1-a52f-051fe6993d8f
+  licensing:
+    enabled: true
+  runtime:
+    name: nodejs20.x

@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    background-color: transparent !important; /* Forge sets its own styling sometimes */
+}
+
+/* Fix Tailwind CSS overriding Mermaid SVG styles */
+#mermaid-diagram svg {
+    max-width: 100% !important;
+}
+
+/* ===== LIGHT MODE (Default - Black & White) ===== */
+#mermaid-diagram .messageLine0,
+#mermaid-diagram .messageLine1 {
+    stroke: #000000 !important;
+    stroke-width: 2px !important;
+}
+
+#mermaid-diagram .actor-line {
+    stroke: #9ca3af !important; /* gray-400 */
+    stroke-width: 2px !important;
+    stroke-dasharray: 4 !important;
+}
+
+#mermaid-diagram rect.actor {
+    rx: 8px !important;
+    ry: 8px !important;
+    stroke: #000000 !important;
+    fill: #ffffff !important;
+    stroke-width: 2px !important;
+}
+
+#mermaid-diagram text.actor > tspan {
+    text-anchor: middle !important;
+    font-weight: 400 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    fill: #000000 !important;
+    stroke: none !important;
+}
+
+#mermaid-diagram .sequenceNumber {
+    fill: #000000 !important;
+    stroke: #000000 !important;
+    r: 13 !important;
+}
+
+#mermaid-diagram text.sequenceNumber {
+    fill: #ffffff !important;
+    font-size: 16px !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-weight: 700 !important;
+    text-anchor: middle !important;
+    stroke: none !important;
+}
+
+#mermaid-diagram .messageText {
+    fill: #000000 !important;
+    stroke: none !important;
+    font-weight: 600 !important;
+}
+
+#mermaid-diagram marker path {
+    fill: #000000 !important;
+    stroke: #000000 !important;
+}
+
+/* ===== DARK MODE OVERRIDES (Matches Editor bg-slate-900) ===== */
+.dark #mermaid-diagram .messageLine0,
+.dark #mermaid-diagram .messageLine1 {
+    stroke: #e2e8f0 !important; /* slate-200 */
+}
+
+.dark #mermaid-diagram .actor-line {
+    stroke: #475569 !important; /* slate-600 */
+}
+
+.dark #mermaid-diagram rect.actor {
+    stroke: #cbd5e1 !important; /* slate-300 */
+    fill: #0f172a !important; /* slate-900 */
+}
+
+.dark #mermaid-diagram text.actor > tspan {
+    fill: #f8fafc !important; /* slate-50 */
+    stroke: none !important;
+}
+
+.dark #mermaid-diagram .sequenceNumber {
+    fill: #cbd5e1 !important; /* slate-300 */
+    stroke: #cbd5e1 !important;
+}
+
+.dark #mermaid-diagram text.sequenceNumber {
+    fill: #ffffff !important; /* white */
+    stroke: none !important;
+    font-weight: 700 !important;
+}
+
+.dark #mermaid-diagram .messageText {
+    fill: #f8fafc !important; /* slate-50 */
+}
+
+.dark #mermaid-diagram marker path {
+    fill: #e2e8f0 !important; /* slate-200 */
+}
