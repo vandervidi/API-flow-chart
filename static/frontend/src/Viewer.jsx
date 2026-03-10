@@ -8,12 +8,19 @@ mermaid.initialize({
     theme: 'default',
 });
 
-export default function Viewer({ data, onEdit, onResize, readOnly = false }) {
+export default function Viewer({ data, onEdit, onResize, readOnly = false, onToggleTheme, canEdit = true }) {
     const containerRef = useRef(null);
-    const [isDark, setIsDark] = useState(false);
+    const isDark = data?.isDark || false;
     const isEmpty = !data || !data.actors || data.actors.length === 0 || !data.steps || data.steps.length === 0;
 
     useEffect(() => {
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: isDark ? 'dark' : 'default',
+            securityLevel: 'loose',
+            fontFamily: 'inherit'
+        });
+
         if (!isEmpty && containerRef.current) {
             const code = generateMermaidString(data);
             if (code) {
@@ -60,14 +67,18 @@ export default function Viewer({ data, onEdit, onResize, readOnly = false }) {
     return (
         <div className={`relative group transition-shadow duration-300 border overflow-hidden min-h-[400px] ${isDark ? 'dark bg-slate-900 border-slate-700/50 shadow-[rgba(0,0,15,0.5)_0px_10px_30px_0px] rounded-2xl' : 'bg-white rounded-2xl shadow-sm hover:shadow-md border-gray-100'}`}>
             <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 flex gap-2">
-                <button
-                    onClick={() => setIsDark(!isDark)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold shadow-sm transition-all focus:ring-2 ${isDark ? 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-700 focus:ring-slate-500' : 'bg-white/90 backdrop-blur border border-gray-200 hover:border-gray-300 text-gray-700 hover:text-gray-900 focus:ring-gray-200'}`}
-                >
-                    {isDark ? <SunIcon className="w-4 h-4" /> : <MoonIcon className="w-4 h-4" />}
-                    {isDark ? 'Light' : 'Dark'}
-                </button>
-                {!readOnly && (
+                {canEdit && (
+                    <button
+                        onClick={() => {
+                            if (onToggleTheme) onToggleTheme(!isDark);
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold shadow-sm transition-all focus:ring-2 ${isDark ? 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-700 focus:ring-slate-500' : 'bg-white/90 backdrop-blur border border-gray-200 hover:border-gray-300 text-gray-700 hover:text-gray-900 focus:ring-gray-200'}`}
+                    >
+                        {isDark ? <SunIcon className="w-4 h-4" /> : <MoonIcon className="w-4 h-4" />}
+                        {isDark ? 'Light' : 'Dark'}
+                    </button>
+                )}
+                {!readOnly && canEdit && (
                     <button
                         onClick={onEdit}
                         className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold shadow-sm transition-all focus:ring-2 ${isDark ? 'bg-indigo-600 text-white hover:bg-indigo-500 border border-indigo-500 focus:ring-indigo-400' : 'bg-white/90 backdrop-blur border border-gray-200 hover:border-gray-300 text-gray-700 hover:text-gray-900 focus:ring-gray-200'}`}

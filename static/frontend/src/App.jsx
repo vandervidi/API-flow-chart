@@ -16,6 +16,7 @@ const mockInvoke = async (method, payload) => {
                 resolve({ success: true });
             }
             if (method === 'checkLicense') resolve({ isLicensed: true });
+            if (method === 'checkUserPermissions') resolve({ canEdit: true }); // Simulating permission
         }, 500); // simulate network delay
     });
 };
@@ -27,6 +28,10 @@ function App() {
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isLicensed, setIsLicensed] = useState(true); // Default to true for dev/free
+    const [hasMacroId, setHasMacroId] = useState(false);
+    const [canEdit, setCanEdit] = useState(false); // Default to false until checked
+    const [isPageEditing, setIsPageEditing] = useState(false); // Track if we are in Confluence Page Edit mode
+    const [isConfiguring, setIsConfiguring] = useState(false); // New state for Config Context
     const containerRef = useRef(null);
 
     // Function to resize the iframe to fit content
@@ -40,12 +45,39 @@ function App() {
     useEffect(() => {
         const initApp = async () => {
             try {
-                // Load flow data (includes license status from backend)
-                const response = await bridgeInvoke('getFlow');
+                // Get context to retrieve macro ID and local ID
+                const context = await view.getContext();
+                const macroId = context?.extension?.macro?.id;
+                const localId = context?.localId;
+                // Only rely on the explicit isConfiguring flag from the macro context
+                // context.extension.config contains the SAVED config, so it is always present if data exists!
+                const configMode = context?.extension?.macro?.isConfiguring;
+                const pageEditing = context?.extension?.isEditing;
+
+                setIsConfiguring(!!configMode);
+                setIsPageEditing(!!pageEditing);
+
+                // IF we are in config, we start in edit mode essentially
+                if (configMode) {
+                    setIsEditing(true);
+                }
+
+                // If it's local development, simulate having an ID
+                setHasMacroId(!!macroId || isLocal);
+
+                // Run data fetching and permission check in parallel
+                const [flowResponse, permResponse] = await Promise.all([
+                    bridgeInvoke('getFlow', { macroId, localId }),
+                    bridgeInvoke('checkUserPermissions')
+                ]);
 
                 // Backend returns { data, isLicensed }
-                setData(response.data);
-                setIsLicensed(response.isLicensed);
+                setData(flowResponse.data);
+                setIsLicensed(flowResponse.isLicensed);
+
+                // Set permissions (allow edit if local dev or if backend says yes)
+                setCanEdit(isLocal || permResponse.canEdit);
+
             } catch (err) {
                 console.error('Failed to initialize app', err);
             } finally {
@@ -77,12 +109,56 @@ function App() {
 
     const handleSave = async (newData) => {
         try {
-            await bridgeInvoke('setFlow', { flowData: newData });
+            const context = await view.getContext();
+            const macroId = context?.extension?.macro?.id;
+            const localId = context.localId;
+            const configMode = context?.extension?.config || context?.extension?.macro?.isConfiguring;
+
+            // Pass BOTH IDs to backend to handle storage logic
+            await bridgeInvoke('setFlow', { flowData: newData, macroId, localId });
             setData(newData);
-            setIsEditing(false);
+
+            // If we are in Macro Config (Modal), close the modal on save
+            if (configMode) {
+                // If it's a configuration modal
+                try {
+                    // Submit empty config to satisfy Confluence and close modal
+                    await view.submit({});
+                } catch (e) {
+                    console.warn("View submit failed", e);
+                }
+            } else {
+                setIsEditing(false);
+            }
         } catch (err) {
             console.error('Failed to save', err);
             alert('Could not save flow data.');
+        }
+    };
+
+    const handleCancel = async () => {
+        setIsEditing(false);
+        if (isConfiguring) {
+            // For Custom UI Config, view.close() or view.submit()
+            // view.close() might be for Modal module. For Config, maybe view.submit() without params.
+            // Let's try view.close() first.
+            await view.close();
+        }
+    };
+
+    const handleToggleTheme = async (isDark) => {
+        // Optimistically update local state
+        const newData = { ...data, isDark };
+        setData(newData);
+
+        // Persist to storage
+        try {
+            const context = await view.getContext();
+            const macroId = context?.extension?.macro?.id;
+            const localId = context.localId;
+            await bridgeInvoke('setFlow', { flowData: newData, macroId, localId });
+        } catch (err) {
+            console.error('Failed to save theme preference', err);
         }
     };
 
@@ -98,6 +174,7 @@ function App() {
     if (!isLicensed) {
         return (
             <div ref={containerRef} className="w-full h-full font-sans antialiased text-gray-900 p-2">
+                {/* ... existing license UI ... */}
                 <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-8 text-center">
                     <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <svg className="w-8 h-8 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -116,6 +193,7 @@ function App() {
                                 onEdit={() => { }} // Disable editing
                                 onResize={resizeToFitContent}
                                 readOnly={true}
+                                onToggleTheme={handleToggleTheme}
                             />
                         </div>
                     )}
@@ -124,13 +202,24 @@ function App() {
         );
     }
 
+    // If no macro ID (unsaved/draft page), show a warning but allow editing
+    const unsavedWarning = !hasMacroId ? (
+        <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 text-xs text-blue-700 text-center flex items-center justify-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span><strong>Draft Mode:</strong> Saving the page is recommended to ensure data persistence.</span>
+        </div>
+    ) : null;
+
     return (
-        <div ref={containerRef} className="w-full h-full font-sans antialiased text-gray-900 p-2">
+        <div ref={containerRef} className="w-full h-full font-sans antialiased text-gray-900 p-2 pt-0">
+            {unsavedWarning}
             {isEditing ? (
                 <Editor
                     initialData={data}
                     onSave={handleSave}
-                    onCancel={() => setIsEditing(false)}
+                    onCancel={handleCancel}
                     onResize={resizeToFitContent}
                 />
             ) : (
@@ -138,6 +227,8 @@ function App() {
                     data={data}
                     onEdit={() => setIsEditing(true)}
                     onResize={resizeToFitContent}
+                    onToggleTheme={handleToggleTheme}
+                    canEdit={isPageEditing || isConfiguring} // Enable inline editing only in Page Edit or Config
                 />
             )}
         </div>

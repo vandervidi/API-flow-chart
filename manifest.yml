@@ -1,6 +1,9 @@
 permissions:
   scopes:
     - storage:app
+    - read:confluence-content.summary
+    - write:confluence-content # Needed to ensure we have content "write" level permissions during execution
+    - read:confluence-content.permission # Explicitly ask to read permissions
 modules:
   macro:
     - key: api-flow-macro
@@ -10,9 +13,18 @@ modules:
       title: API Flow Chart
       description: Document your API call sequences as auto-updating diagrams.
       layout: block
+      config:
+        resource: main
+  trigger:
+    - key: macro-removed-trigger
+      function: onMacroRemoved
+      events:
+        - avi:confluence:removed:macro
   function:
     - key: resolver
       handler: index.handler
+    - key: onMacroRemoved
+      handler: index.onMacroRemoved
 resources:
   - key: main
     path: static/frontend/dist

@@ -2,11 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PlusIcon, TrashIcon, CheckIcon, XMarkIcon, SwatchIcon, Bars3Icon } from '@heroicons/react/20/solid';
 
 export default function Editor({ initialData, onSave, onCancel, onResize }) {
+    // Check if we have saved data - must be a non-null object with actors or steps defined
+    const hasExistingData = initialData !== null &&
+        initialData !== undefined &&
+        typeof initialData === 'object' &&
+        (Array.isArray(initialData.actors) || Array.isArray(initialData.steps));
+
     const [actors, setActors] = useState(
-        initialData?.actors?.length > 0 ? initialData.actors : ['Frontend', 'Backend']
+        hasExistingData && Array.isArray(initialData.actors) ? initialData.actors : ['Frontend', 'Backend']
     );
     const [steps, setSteps] = useState(
-        initialData?.steps?.length > 0
+        hasExistingData && Array.isArray(initialData.steps)
             ? initialData.steps.map((s, i) => ({ ...s, id: i }))
             : [{ id: 0, from: 'Frontend', to: 'Backend', endpoint: '/api/data', description: 'Fetch initial data' }]
     );
@@ -26,11 +32,33 @@ export default function Editor({ initialData, onSave, onCancel, onResize }) {
     }, [actors.length, steps.length, onResize]);
 
     const addActor = () => setActors([...actors, `Service ${actors.length + 1}`]);
-    const removeActor = (idx) => setActors(actors.filter((_, i) => i !== idx));
+
+    // When removing an actor, also remove any steps that reference it
+    const removeActor = (idx) => {
+        const actorToRemove = actors[idx];
+        const newActors = actors.filter((_, i) => i !== idx);
+        setActors(newActors);
+
+        if (newActors.length < 2) {
+            setSteps([]);
+        } else {
+            // Remove steps that have this actor as 'from' or 'to'
+            setSteps(steps.filter(s => s.from !== actorToRemove && s.to !== actorToRemove));
+        }
+    };
+
+    // When updating an actor name, also update steps that reference it
     const updateActor = (idx, val) => {
+        const oldName = actors[idx];
         const newActors = [...actors];
         newActors[idx] = val;
         setActors(newActors);
+        // Update steps that reference the old actor name
+        setSteps(steps.map(s => ({
+            ...s,
+            from: s.from === oldName ? val : s.from,
+            to: s.to === oldName ? val : s.to
+        })));
     };
 
     // Actor drag and drop handlers
@@ -150,7 +178,13 @@ export default function Editor({ initialData, onSave, onCancel, onResize }) {
     const handleSave = async () => {
         setIsSaving(true);
         const cleanSteps = steps.map(({ from, to, endpoint, description }) => ({ from, to, endpoint, description }));
-        await onSave({ actors, steps: cleanSteps });
+        // Preserve other properties from initialData (like isDark) when saving
+        const payload = {
+            ...(initialData || {}),
+            actors,
+            steps: cleanSteps
+        };
+        await onSave(payload);
         setIsSaving(false);
     };
 
@@ -215,8 +249,8 @@ export default function Editor({ initialData, onSave, onCancel, onResize }) {
                                 onDrop={(e) => handleActorDrop(e, idx)}
                                 onDragEnd={handleActorDragEnd}
                                 className={`flex items-center gap-2 group p-2 -m-2 rounded-lg transition-all ${dragOverActor === idx
-                                        ? 'bg-indigo-500/10 ring-2 ring-indigo-500'
-                                        : ''
+                                    ? 'bg-indigo-500/10 ring-2 ring-indigo-500'
+                                    : ''
                                     } ${draggedActor === idx ? 'opacity-50' : ''}`}
                             >
                                 <div
@@ -237,7 +271,8 @@ export default function Editor({ initialData, onSave, onCancel, onResize }) {
                                 />
                                 <button
                                     onClick={() => removeActor(idx)}
-                                    className="p-2 text-slate-500 hover:text-red-400 rounded-lg hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-all focus:opacity-100"
+                                    className="p-2 text-slate-500 hover:text-red-400 rounded-lg hover:bg-slate-800 transition-all focus:opacity-100"
+                                    title="Remove participant"
                                 >
                                     <TrashIcon className="w-4 h-4" />
                                 </button>
@@ -347,6 +382,6 @@ export default function Editor({ initialData, onSave, onCancel, onResize }) {
                 </div>
 
             </div>
-        </div>
+        </div >
     );
 }
